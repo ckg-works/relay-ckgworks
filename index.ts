@@ -8,7 +8,7 @@ import { createBeforePromptBuildHook, createLlmOutputHook, createAgentEndHook } 
 const state = new RelayPluginState()
 
 const plugin = {
-  id: "relay",
+  id: "openclaw-relay",
   name: "Relay",
   description: "Relay channel plugin — connect apps to AI agents via Relay's WebSocket bridge.",
 
