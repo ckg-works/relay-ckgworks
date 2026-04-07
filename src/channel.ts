@@ -55,8 +55,8 @@ export const createRelayPlugin = (
 
   config: {
     listAccountIds: () => ["relay"],
-    resolveAccount: ({ cfg }: any = {}) => {
-      // Read token from live OpenClaw config (not cached config object)
+    resolveAccount: (cfg: any, _accountId?: string) => {
+      // OpenClaw calls resolveAccount(cfg, accountId) — cfg is the full OpenClaw config
       const token = cfg?.channels?.relay?.token ?? config.token ?? ""
       return {
         accountId: "relay",
