@@ -104,52 +104,22 @@ export const createRelayPlugin = (
       }
     },
     configure: async ({ cfg, prompter }: any) => {
-      const relayCfg = cfg?.channels?.relay
-      const isConfigured = Boolean(relayCfg?.token)
-
-      if (isConfigured) {
-        const action = await prompter.select({
-          message: "Relay already configured. What do you want to do?",
-          options: [
-            { label: "Modify settings", value: "modify" },
-            { label: "Disable (keeps config)", value: "disable" },
-            { label: "Delete config", value: "delete" },
-            { label: "Skip (leave as-is)", value: "skip" },
-          ],
-        })
-
-        if (action === "skip") return { cfg }
-        if (action === "disable") {
-          cfg.channels.relay.enabled = false
-          return { cfg }
-        }
-        if (action === "delete") {
-          delete cfg.channels.relay
-          return { cfg }
-        }
-        // "modify" falls through to token prompt below
-      }
-
+      // Called by OpenClaw for both first-time and "Modify settings" from the built-in menu
       const token = await prompter.text({
         message: "Enter your Relay agent token (rla_...)",
         validate: (v: string) => v.startsWith("rla_") ? null : "Token must start with rla_",
       })
 
       cfg.channels = cfg.channels ?? {}
-      cfg.channels.relay = { token, enabled: true }
+      cfg.channels.relay = { ...cfg.channels.relay, token, enabled: true }
       return { cfg, accountId: "relay" }
     },
-    configureInteractive: async ({ cfg, prompter }: any) => {
-      // Delegate to configure (handles both first-time and reconfigure)
-      const relayCfg = cfg?.channels?.relay
-      const isConfigured = Boolean(relayCfg?.token)
+    configureInteractive: async ({ cfg, configured, prompter }: any) => {
+      // Called when user selects Relay from the channel list
+      // If already configured, return undefined → OpenClaw shows its built-in Modify/Disable/Delete/Skip menu
+      if (configured) return undefined
 
-      if (isConfigured) {
-        // Already configured — configure() handles the menu
-        return undefined
-      }
-
-      // First-time setup
+      // First-time setup: prompt for token
       const token = await prompter.text({
         message: "Enter your Relay agent token (rla_...)",
         validate: (v: string) => v.startsWith("rla_") ? null : "Token must start with rla_",
