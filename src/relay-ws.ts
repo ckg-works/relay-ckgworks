@@ -27,7 +27,7 @@ export class RelayWebSocket {
   public onEvent: OnEventFn
 
   constructor(
-    private config: RelayPluginConfig,
+    public config: RelayPluginConfig,
     onEvent: OnEventFn,
     logger?: any,
   ) {

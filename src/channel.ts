@@ -11,6 +11,8 @@ import type { RelayWebSocket } from "./relay-ws.js"
 import { isRelaySessionKey } from "./session-keys.js"
 import { getRelayRuntime } from "./runtime.js"
 
+const DEFAULT_WS_URL = "wss://api.relay.ckgworks.com/v1/ws/agent"
+
 const waitUntilAbort = (signal: AbortSignal, cleanup?: () => void): Promise<void> =>
   new Promise((resolve) => {
     if (signal.aborted) {
@@ -53,11 +55,15 @@ export const createRelayPlugin = (
 
   config: {
     listAccountIds: () => ["relay"],
-    resolveAccount: () => ({
-      accountId: "relay",
-      enabled: Boolean(config.token),
-      wsUrl: config.wsUrl,
-    }),
+    resolveAccount: ({ cfg }: any = {}) => {
+      // Read token from live OpenClaw config (not cached config object)
+      const token = cfg?.channels?.relay?.token ?? config.token ?? ""
+      return {
+        accountId: "relay",
+        enabled: Boolean(token),
+        wsUrl: config.wsUrl,
+      }
+    },
     defaultAccountId: () => "relay",
   },
 
@@ -69,6 +75,7 @@ export const createRelayPlugin = (
       cfg.channels.relay = {
         ...cfg.channels.relay,
         token: token || cfg.channels.relay?.token,
+        enabled: true,
       }
 
       return cfg
@@ -96,16 +103,60 @@ export const createRelayPlugin = (
         selectionHint: "Connect your AI agent to apps via Relay",
       }
     },
-    configure: async ({ cfg }: any) => ({ cfg }),
-    configureInteractive: async ({ cfg, prompter }: any) => {
+    configure: async ({ cfg, prompter }: any) => {
+      const relayCfg = cfg?.channels?.relay
+      const isConfigured = Boolean(relayCfg?.token)
+
+      if (isConfigured) {
+        const action = await prompter.select({
+          message: "Relay already configured. What do you want to do?",
+          options: [
+            { label: "Modify settings", value: "modify" },
+            { label: "Disable (keeps config)", value: "disable" },
+            { label: "Delete config", value: "delete" },
+            { label: "Skip (leave as-is)", value: "skip" },
+          ],
+        })
+
+        if (action === "skip") return { cfg }
+        if (action === "disable") {
+          cfg.channels.relay.enabled = false
+          return { cfg }
+        }
+        if (action === "delete") {
+          delete cfg.channels.relay
+          return { cfg }
+        }
+        // "modify" falls through to token prompt below
+      }
+
       const token = await prompter.text({
         message: "Enter your Relay agent token (rla_...)",
         validate: (v: string) => v.startsWith("rla_") ? null : "Token must start with rla_",
       })
 
       cfg.channels = cfg.channels ?? {}
-      cfg.channels.relay = { token }
+      cfg.channels.relay = { token, enabled: true }
+      return { cfg, accountId: "relay" }
+    },
+    configureInteractive: async ({ cfg, prompter }: any) => {
+      // Delegate to configure (handles both first-time and reconfigure)
+      const relayCfg = cfg?.channels?.relay
+      const isConfigured = Boolean(relayCfg?.token)
 
+      if (isConfigured) {
+        // Already configured — configure() handles the menu
+        return undefined
+      }
+
+      // First-time setup
+      const token = await prompter.text({
+        message: "Enter your Relay agent token (rla_...)",
+        validate: (v: string) => v.startsWith("rla_") ? null : "Token must start with rla_",
+      })
+
+      cfg.channels = cfg.channels ?? {}
+      cfg.channels.relay = { token, enabled: true }
       return { cfg, accountId: "relay" }
     },
   },
@@ -115,7 +166,6 @@ export const createRelayPlugin = (
       deliveryMode: "gateway",
       textChunkLimit: 4000,
       sendText: async ({ to, text }: { to: string; text: string }) => {
-        // Streaming: send each text chunk as a token to Relay
         const evtCtx = state.getBySession(to)
         if (!evtCtx) return
 
@@ -140,16 +190,24 @@ export const createRelayPlugin = (
 
   gateway: {
     startAccount: async (ctx: any) => {
-      if (!config.token) {
+      // Read token from live config (not the cached config from init time)
+      const rt = getRelayRuntime()
+      const currentCfg = await rt.config.loadConfig()
+      const token = currentCfg?.channels?.relay?.token ?? config.token
+
+      if (!token) {
         ctx.log?.warn?.("[relay] Missing token — gateway not starting")
         return
       }
 
-      // Set up the event handler: when Relay sends an event, dispatch into OpenClaw
+      // Update WS config with live token
+      ws.onEvent = () => {} // reset
+      ;(ws as any).config = { token, wsUrl: config.wsUrl || DEFAULT_WS_URL }
+
+      // Set up the event handler
       const handleEvent = async (event: any) => {
         const { event_id, app_id, thread_id, session_key, payload } = event
 
-        // Store event context for hooks
         state.setEvent({
           eventId: event_id,
           sessionKey: session_key,
@@ -160,9 +218,7 @@ export const createRelayPlugin = (
           createdAt: Date.now(),
         })
 
-        // Dispatch into OpenClaw session
-        const rt = getRelayRuntime()
-        const currentCfg = await rt.config.loadConfig()
+        const liveCfg = await rt.config.loadConfig()
 
         const message = typeof payload === "object" && payload !== null && "message" in (payload as any)
           ? (payload as any).message
@@ -187,7 +243,7 @@ export const createRelayPlugin = (
 
         await rt.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
           ctx: msgCtx,
-          cfg: currentCfg,
+          cfg: liveCfg,
           dispatcherOptions: {
             deliver: async (deliverPayload: { text?: string; body?: string }) => {
               const text = deliverPayload?.text ?? deliverPayload?.body
@@ -206,9 +262,7 @@ export const createRelayPlugin = (
         })
       }
 
-      // Connect WebSocket (relay-ws handles reconnection)
-      // Replace the onEvent callback
-      ;(ws as any).onEvent = handleEvent
+      ws.onEvent = handleEvent
       ws.connect()
 
       state.startCleanup()
