@@ -15,17 +15,20 @@ App (Portal, Flow, etc.)
 ## Installation
 
 ```bash
-# Install from GitHub
-openclaw plugins install github:ckg-works/relay-ckgworks
+# Install from npm
+openclaw plugins install @ckgworks/openclaw-relay
 
-# Enable the plugin
-openclaw plugins enable relay
+# Configure via the standard OpenClaw flow
+openclaw configure
+# → Select "Channels" → Select "Relay" → Enter your rla_ token
+```
 
-# Run the setup wizard (prompts for your agent token)
+Or configure directly:
+```bash
 openclaw channels setup relay
 ```
 
-The setup wizard asks for one thing: your `rla_` agent token from the [Relay Dashboard](https://relay.ckgworks.com).
+The setup asks for one thing: your `rla_` agent token from the [Relay Dashboard](https://relay.ckgworks.com).
 
 ## What You Need
 
