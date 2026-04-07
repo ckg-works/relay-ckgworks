@@ -1,0 +1,29 @@
+{
+  "name": "@openclaw/relay",
+  "version": "0.1.0",
+  "description": "OpenClaw Relay channel plugin — connect Relay AI messaging bridge to OpenClaw agents.",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "channel": {
+      "id": "relay",
+      "label": "Relay",
+      "selectionLabel": "Relay (CKG Works) — AI messaging bridge for your apps.",
+      "blurb": "Connect apps to AI agents via Relay's WebSocket bridge.",
+      "order": 40
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

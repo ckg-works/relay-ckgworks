@@ -1,0 +1,9 @@
+{
+  "id": "relay",
+  "channels": ["relay"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
