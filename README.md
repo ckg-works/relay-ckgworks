@@ -1,4 +1,4 @@
-# @ckg-works/openclaw-relay
+# @ckgworks/openclaw-relay
 
 OpenClaw channel plugin for [Relay](https://relay.ckgworks.com) — the AI messaging bridge for CKG Works and Smiling Group apps.
 

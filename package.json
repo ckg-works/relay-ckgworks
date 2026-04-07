@@ -1,5 +1,5 @@
 {
-  "name": "@ckg-works/openclaw-relay",
+  "name": "@ckgworks/openclaw-relay",
   "version": "0.1.0",
   "description": "OpenClaw Relay channel plugin — connect Relay AI messaging bridge to OpenClaw agents.",
   "type": "module",
